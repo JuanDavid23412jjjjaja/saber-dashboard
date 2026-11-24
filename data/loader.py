@@ -23,17 +23,26 @@ def _get_secret(key, default=None):
     return os.environ.get(key, default)
 
 
+def _resolve_client_id():
+    s = _get_secret("GOOGLE_CLIENT_ID")
+    if s:
+        return s
+    try:
+        from data import _local
+        return getattr(_local, "CLIENT_ID", CLIENT_ID)
+    except Exception:
+        return CLIENT_ID
+
+
 def _resolve_client_secret():
     s = _get_secret("GOOGLE_CLIENT_SECRET")
     if s:
         return s
-    # fallback local: leer del token.json
     try:
-        with open(TOKEN_PATH) as f:
-            tok = json.load(f)
-        return tok.get("client_secret", CLIENT_SECRET)
+        from data import _local
+        return getattr(_local, "CLIENT_SECRET", None)
     except Exception:
-        return CLIENT_SECRET
+        return None
 
 AREAS = ["Biología", "Química", "Física", "CTS"]
 AREA_KEY = {"Biología": "biologia", "Química": "quimica", "Física": "fisica", "CTS": "cts"}
@@ -42,7 +51,7 @@ AREA_KEY = {"Biología": "biologia", "Química": "quimica", "Física": "fisica",
 def _creds():
     # 1) Intentar secrets/env (Streamlit Cloud)
     rt = _get_secret("GOOGLE_REFRESH_TOKEN")
-    cid = _get_secret("GOOGLE_CLIENT_ID", CLIENT_ID)
+    cid = _resolve_client_id()
     csec = _resolve_client_secret()
     if rt:
         data = {"client_id": cid, "client_secret": csec, "refresh_token": rt, "grant_type": "refresh_token"}
@@ -54,7 +63,7 @@ def _creds():
     with open(TOKEN_PATH) as f:
         tok = json.load(f)
     data = {
-        "client_id": CLIENT_ID,
+        "client_id": _resolve_client_id(),
         "client_secret": _resolve_client_secret(),
         "refresh_token": tok["refresh_token"],
         "grant_type": "refresh_token",
